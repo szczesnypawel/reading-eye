@@ -11,6 +11,39 @@ tracker.
 Inspired by [CHIMERA](https://github.com/jamesondh/chimera-vocal-synth), a physical-modelling
 voice synthesizer that shows its insides as it runs. The two projects share no code.
 
+## The idea in plain words
+
+**How we read.** When you read, your eyes do not glide along the line. They jump from word to
+word, about four times a second, and stop on each word for about a quarter of a second. They
+skip many short words, and now and then they jump back. Only a small spot in the middle of your
+vision is sharp, so you can see a word clearly only when you look straight at it or very near it.
+
+**E-Z Reader.** E-Z Reader is a well-known model of this, built by psychologists since 1998. It says the mind does a few simple things in order. It looks at one word at a time.
+First it checks if the word looks familiar. When it does, the eyes start to plan the next jump.
+Then the mind finishes reading the word and moves its attention on. A plan to jump can still be
+cancelled for a short while; if the next word is easy enough to read from the corner of the
+eye, the plan changes and the eye skips that word. Common, short and expected words go fast.
+Rare, long and surprising words go slow. The model is a set of simple rules with a few numbers
+in them, such as how long it takes to check a word or plan a jump.
+
+**The Provo data.** Two psychologists, Steven Luke and Kiel Christianson, asked 84 adults to read 55 short
+texts while a camera tracked their eyes. For every word we know how long people looked at it,
+how often they skipped it, and how often they went back from it. Other people were shown each
+text up to a given word and asked to guess the next word, which tells us how expected each word
+is. The data are free to use.
+
+**Why join them.** A model is only worth something if it behaves like real people. Provo lets us
+check that, word by word: we run the model on the same 55 texts and compare where its eye stops,
+for how long, and what it skips, with what the 84 readers did. Where the model and the people
+differ, the model is missing something about how we read.
+
+**What fitting does.** The model has about 20 numbers in it. The published values come from
+other texts and other readers. Fitting searches for the numbers that make the model's reading
+closest to the Provo readers'. It tries a small change, runs the model on 40 of the texts, keeps
+the change if the model got closer to the people, and repeats this a few hundred times. Then we
+test the result on the other 15 texts, which the search never saw. If the model does well there
+too, it has learned how people read, not just these 40 texts.
+
 ## Run it
 
 Needs Node 23.6 or newer (it runs the TypeScript directly) and pnpm.
