@@ -12,5 +12,5 @@
     "types": ["node"],
     "skipLibCheck": true
   },
-  "include": ["src", "tools", "tests"]
+  "include": ["src", "tools", "tests", "vite.config.ts"]
 }

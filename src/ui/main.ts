@@ -36,8 +36,8 @@ async function loadJSON<T>(path: string): Promise<T> {
 
 async function boot() {
   [state.lex, state.index] = await Promise.all([
-    loadJSON<Lexicon>("/data/lexicon.json"),
-    loadJSON<typeof state.index>("/data/provo/index.json"),
+    loadJSON<Lexicon>(`${import.meta.env.BASE_URL}data/lexicon.json`),
+    loadJSON<typeof state.index>(`${import.meta.env.BASE_URL}data/provo/index.json`),
   ]);
   const pick = $<HTMLSelectElement>("text-pick");
   for (const t of state.index) {
@@ -69,7 +69,7 @@ async function chooseText() {
     state.doc = null;
     state.page = pageFromText($<HTMLTextAreaElement>("typed-text").value, state.lex);
   } else {
-    state.doc = await loadJSON<ProvoDoc>(`/data/provo/text${v.padStart(2, "0")}.json`);
+    state.doc = await loadJSON<ProvoDoc>(`${import.meta.env.BASE_URL}data/provo/text${v.padStart(2, "0")}.json`);
     state.page = pageFromProvo(state.doc, state.lex);
     const gp = $<HTMLSelectElement>("ghost-pick");
     gp.innerHTML = "";

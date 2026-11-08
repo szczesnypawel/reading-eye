@@ -142,3 +142,12 @@ scripts/      data preparation (Python)
 public/data/  prepared Provo passages and the frequency lexicon
 tests/        engine tests (node --test)
 ```
+
+## Licence
+
+- Code: MIT (`LICENSE`).
+- Prepared data in `public/data/`: CC BY-SA 4.0, because they combine the Provo Corpus
+  (CC BY 4.0) with wordfreq frequencies (CC BY-SA 4.0). Attribution and the changes made are in
+  `public/data/LICENSE.md`.
+- E-Z Reader is a published scientific model; this is an independent implementation from its
+  description in the papers cited above, with no code taken from its authors.
