@@ -6,10 +6,8 @@ time, and saccade plans being made and cancelled. You can grab the mechanism whi
 you can compare it, word by word, with 84 real people who read the same passages with an eye
 tracker.
 
-It is the reading counterpart of [CHIMERA](https://github.com/jamesondh/chimera-vocal-synth):
-CHIMERA makes a voice from a simulated airway; this makes eye movements from a simulated reader.
-The same idea carries over: a mechanism, not a curve fit; every internal value on screen; one
-engine for the live page and for the command-line scorer.
+Inspired by [CHIMERA](https://github.com/jamesondh/chimera-vocal-synth), a physical-modelling
+voice synthesizer that shows its insides as it runs. The two projects share no code.
 
 ## Run it
 
