@@ -24,6 +24,7 @@ const FREE: [keyof Params, number, number][] = [
   ["eps", 1.0, 1.5],
   ["M1", 60, 250],
   ["pF", 0, 0.4],
+  ["pN", 0, 1],
   ["lambda", 0, 0.5],
   ["omega1", 5.3, 9],
   ["psi", 3, 12],

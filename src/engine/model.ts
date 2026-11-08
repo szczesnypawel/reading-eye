@@ -163,9 +163,10 @@ export class Reader {
   }
 
   // ---- lexical processing -------------------------------------------------------------
-  private baseTime(word: number) {
+  /** mean L1 time (Equation 1, lower branch) with the predictability that is usable now */
+  private baseTime(word: number, pred: number) {
     const w = this.page.words[word];
-    const mu = this.p.alpha1 - this.p.alpha2 * lnFreqPerMillion(w.zipf) - this.p.alpha3 * w.pred;
+    const mu = this.p.alpha1 - this.p.alpha2 * lnFreqPerMillion(w.zipf) - this.p.alpha3 * pred;
     return Math.max(mu, 10);
   }
 
@@ -173,8 +174,11 @@ export class Reader {
     const ws = this.words[k];
     if (ws.stage === "done") return;
     if (ws.stage === "waiting") {
-      const mu = this.baseTime(k);
-      ws.l1Need = this.rng.gamma(mu, this.p.cv);
+      // predictability helps only if the previous word is already integrated (E-Z Reader 10)
+      const pred = k === 0 || this.words[k - 1].integrated ? this.page.words[k].pred : 0;
+      const mu = this.baseTime(k, pred);
+      // with probability = predictability the word is guessed: L1 takes no time (Equation 1)
+      ws.l1Need = this.rng.next() < pred ? 0 : this.rng.gamma(mu, this.p.cv);
       ws.l2Need = this.rng.gamma(this.p.delta * mu, this.p.cv);
       ws.l1Done = 0;
       ws.l2Done = 0;
@@ -202,7 +206,6 @@ export class Reader {
     if (this.att !== k) return; // a failure moved attention back
     const next = this.words.findIndex((w, i) => i > k && w.stage !== "done");
     if (next === -1) return;
-    if (ws.regressions > 0 && !this.wandering) this.program(next, "next");
     this.shiftTo(next);
   }
 
@@ -213,33 +216,37 @@ export class Reader {
       this.closeI("L2");
     }
     this.closeI("att");
-    this.shift = { to: k, left: this.p.A };
+    this.shift = { to: k, left: this.rng.gamma(this.p.A, this.p.cv) };
     this.openI("att", k);
   }
 
+  /**
+   * Integration of word k failed. With probability pN the eyes and attention go back to word k,
+   * otherwise to word k-1; from there the words are processed again (L1, L2 and I).
+   */
   private fail(k: number) {
     const ws = this.words[k];
     ws.integrating = false;
     this.closeI("int", k, "fail");
-    ws.regressions++;
-    // go back: reanalyse word k (a fresh L2), with eyes following
-    ws.stage = "L2";
-    ws.l2Done = 0;
-    ws.l2Need = this.rng.gamma(this.p.delta * this.baseTime(k), this.p.cv);
-    for (let i = k + 1; i < this.words.length; i++) {
+    const back = k > 0 && this.rng.next() >= this.p.pN ? k - 1 : k;
+    for (let i = back; i < this.words.length; i++) {
       const w = this.words[i];
-      if (w.stage === "L1" || w.stage === "L2") {
+      if (i <= k || w.stage === "L1" || w.stage === "L2") {
         w.stage = "waiting";
         w.integrating = false;
+        if (i <= k) w.integrated = false;
       }
     }
+    // second passes rarely fail again (the paper makes this probability "very small")
+    this.words[back].regressions++;
+    ws.regressions++;
     this.closeI("L1");
     this.closeI("L2");
-    this.att = k;
+    this.att = back;
     this.closeI("att");
-    this.shift = { to: k, left: this.p.A };
-    this.openI("att", k, "back");
-    if (this.fixations.at(-1)!.word !== k) this.program(k, "regress");
+    this.shift = { to: back, left: this.rng.gamma(this.p.A, this.p.cv) };
+    this.openI("att", back, "back");
+    if (this.fixations.at(-1)!.word !== back) this.program(back, "regress");
   }
 
   // ---- saccade programming ------------------------------------------------------------
@@ -254,7 +261,7 @@ export class Reader {
       col: col ?? this.aim(target),
       kind,
       stage: "labile",
-      need: this.rng.gamma(this.p.M1 + (kind === "timer" ? 120 : 0), this.p.cv),
+      need: this.rng.gamma(this.p.M1 + (kind === "timer" ? 120 : 0) + (kind === "regress" ? this.p.regExtra : 0), this.p.cv),
       done: 0,
     };
     this.openI("labile", target, kind);
@@ -270,7 +277,7 @@ export class Reader {
       let sys = 0;
       if (D > 0 && prog.kind !== "regress") {
         const dur = Math.max(this.t - from.start, 1);
-        sys = ((this.p.psi - D) * Math.max(0, this.p.omega1 - Math.log(dur))) / this.p.omega2;
+        sys = ((this.p.psi - D) * (this.p.omega1 - Math.log(dur))) / this.p.omega2;
       }
       col = prog.col + sys + this.rng.normal(0, this.p.eta1 + this.p.eta2 * Math.abs(D));
     } else {

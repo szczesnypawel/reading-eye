@@ -1,7 +1,8 @@
 /**
  * Parameters of the reading eye. The structure follows E-Z Reader 10 (Reichle, Warren &
- * McConnell, 2009). The defaults are that paper's values as we recall them; `fitted.ts` holds
- * values fitted to the Provo Corpus. Times in ms, distances in character spaces.
+ * McConnell, 2009, Psychonomic Bulletin & Review 16(1), 1–21; PMC2629133). `EZR10` holds that
+ * paper's values, checked against the text; `fitted.ts` holds values fitted to the Provo Corpus.
+ * Times in ms, distances in character spaces.
  */
 export interface Params {
   /** L1 (familiarity check) mean time: alpha1 − alpha2·ln(freq per million) − alpha3·pred */
@@ -17,8 +18,12 @@ export interface Params {
   /** Post-lexical integration time and probability it fails (→ regression) */
   I: number;
   pF: number;
-  /** Attention shift time */
+  /** Attention shift time (mean of a gamma) */
   A: number;
+  /** After an integration failure: probability the eyes go back to that word, else the one before */
+  pN: number;
+  /** Extra labile programming time for regressive saccades */
+  regExtra: number;
   /** Eye-mind lag: visual input from a new fixation arrives V ms after it starts */
   V: number;
   /** Saccade programming: labile (cancellable) and non-labile stage; saccade duration */
@@ -48,15 +53,20 @@ export interface Params {
 }
 
 export const EZR10: Params = {
-  alpha1: 104,
-  alpha2: 3.4,
-  alpha3: 39,
-  delta: 0.34,
+  // Reichle, Warren & McConnell (2009): alpha1–3, delta, M1 and lambda as changed for E-Z Reader 10
+  alpha1: 98,
+  alpha2: 2,
+  alpha3: 27,
+  delta: 0.25,
   eps: 1.15,
   cv: 0.22,
   I: 25,
-  pF: 0.01,
-  A: 25,
+  // pF and pN are not given as single values in the 2009 paper; these are the defaults in
+  // Reichle, Rayner & Pollatsek (2012, Visual Cognition, Table 1)
+  pF: 0.05,
+  A: 50,
+  pN: 0.5,
+  regExtra: 30,
   V: 50,
   M1: 125,
   M2: 25,
@@ -66,7 +76,8 @@ export const EZR10: Params = {
   omega2: 3,
   eta1: 0.5,
   eta2: 0.15,
-  lambda: 0.16,
+  lambda: 0.05,
+  // not part of E-Z Reader (see model.ts)
   sweep: 1.5,
   pCorrect: 0,
   scotoma: 0,
