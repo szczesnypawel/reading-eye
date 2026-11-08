@@ -3,17 +3,32 @@ import type { Interval, Reader } from "../engine/model.ts";
 import { posToPx, type Page } from "../engine/text.ts";
 
 export const C = {
-  ink: "#dde3df",
-  muted: "#7b868f",
-  faint: "#3a444c",
-  l1: "#e0a526",
-  l2: "#22b8b0",
-  int: "#9a7cf0",
-  fail: "#ff5a4f",
-  att: "rgba(242, 215, 107, 0.22)",
-  eye: "#6f8cff",
-  human: "#ff5fb0",
+  ink: "#d8f6ff",
+  muted: "#6b7d8c",
+  faint: "#2a3440",
+  l1: "#ffb23e",
+  l2: "#00ffa3",
+  int: "#b45cff",
+  fail: "#ff2a4f",
+  att: "#f8e71c",
+  eye: "#3ef0ff",
+  plan: "#7d6bff",
+  human: "#ff3ea5",
 };
+
+function scanlines(ctx: CanvasRenderingContext2D, w: number, h: number, a = 0.16) {
+  ctx.fillStyle = `rgba(0,0,0,${a})`;
+  for (let y = 0; y < h; y += 3) ctx.fillRect(0, y, w, 1);
+}
+
+function glow<T>(ctx: CanvasRenderingContext2D, color: string, blur: number, f: () => T): T {
+  ctx.save();
+  ctx.shadowColor = color;
+  ctx.shadowBlur = blur;
+  const r = f();
+  ctx.restore();
+  return r;
+}
 
 export interface Ghost {
   fix: [number, number, number, number][];
@@ -78,6 +93,21 @@ export function drawPage(canvas: HTMLCanvasElement, rd: Reader, ghost: Ghost | n
   const v = pageView(page, cssW);
   const { ctx } = fit(canvas, v.h);
   ctx.clearRect(0, 0, cssW, v.h);
+  // faint grid
+  ctx.strokeStyle = "rgba(62,240,255,0.045)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x < cssW; x += 24) {
+    ctx.beginPath();
+    ctx.moveTo(x + 0.5, 0);
+    ctx.lineTo(x + 0.5, v.h);
+    ctx.stroke();
+  }
+  for (let y = 0; y < v.h; y += 24) {
+    ctx.beginPath();
+    ctx.moveTo(0, y + 0.5);
+    ctx.lineTo(cssW, y + 0.5);
+    ctx.stroke();
+  }
   const cw = page.ppc * v.s;
   ctx.font = `${Math.round(cw / 0.6)}px "Courier Prime", "Courier New", monospace`;
   const adv = ctx.measureText("M").width;
@@ -85,18 +115,32 @@ export function drawPage(canvas: HTMLCanvasElement, rd: Reader, ghost: Ghost | n
   ctx.font = `${fs}px "Courier Prime", "Courier New", monospace`;
   ctx.textBaseline = "middle";
 
-  // attention spotlight
+  // attention: neon corner brackets around the attended word
   const att = rd.shift ? rd.shift.to : rd.att;
   const aw = page.words[att];
   const ap = posToPx(page, aw.line, aw.col);
-  ctx.fillStyle = C.att;
-  const hh = fs * 1.25;
-  roundRect(ctx, v.X(ap.x) - 3, v.Y(ap.y) - hh / 2, aw.len * cw + 6, hh, 4);
-  ctx.globalAlpha = rd.shift ? 0.45 : 1;
-  ctx.fill();
-  ctx.globalAlpha = 1;
+  {
+    const x0 = v.X(ap.x) - 5, x1 = v.X(ap.x) + aw.len * cw + 5;
+    const y0 = v.Y(ap.y) - fs * 0.72, y1 = v.Y(ap.y) + fs * 0.85;
+    const k = Math.min(8, (x1 - x0) / 3);
+    ctx.globalAlpha = rd.shift ? 0.45 : 1;
+    ctx.fillStyle = "rgba(248,231,28,0.07)";
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    glow(ctx, C.att, 10, () => {
+      ctx.strokeStyle = C.att;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (const [x, y, dx, dy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]] as const) {
+        ctx.moveTo(x + dx * k, y);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x, y + dy * k);
+      }
+      ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+  }
 
-  // words with their lexical progress underneath
+  // words: dim until read, glowing once understood; neon progress bars underneath
   page.words.forEach((w, i) => {
     const ws = rd.words[i];
     const p = posToPx(page, w.line, w.col);
@@ -104,23 +148,52 @@ export function drawPage(canvas: HTMLCanvasElement, rd: Reader, ghost: Ghost | n
     const y = v.Y(p.y);
     const flash = flashes.get(i);
     const failed = flash !== undefined && rd.t - flash < 600;
-    ctx.fillStyle = failed ? C.fail : ws.stage === "waiting" && !ws.integrated ? "#56606a" : C.ink;
-    ctx.fillText(w.text, x, y);
+    const active = ws.stage === "L1" || ws.stage === "L2";
+    if (failed) {
+      glow(ctx, C.fail, 12, () => {
+        ctx.fillStyle = C.fail;
+        ctx.fillText(w.text, x, y);
+      });
+    } else if (active) {
+      glow(ctx, C.att, 8, () => {
+        ctx.fillStyle = "#fff6c2";
+        ctx.fillText(w.text, x, y);
+      });
+    } else if (ws.integrated || ws.stage === "done") {
+      glow(ctx, C.eye, 4, () => {
+        ctx.fillStyle = C.ink;
+        ctx.fillText(w.text, x, y);
+      });
+    } else {
+      ctx.fillStyle = "#3b4a57";
+      ctx.fillText(w.text, x, y);
+    }
     const bw = w.len * cw;
     const by = y + fs * 0.62;
-    ctx.fillStyle = "rgba(255,255,255,0.07)";
-    ctx.fillRect(x, by, bw, 3);
+    ctx.fillStyle = "rgba(62,240,255,0.08)";
+    ctx.fillRect(x, by, bw, 2);
     const f1 = ws.stage === "waiting" ? 0 : Math.min(1, ws.l1Done / Math.max(ws.l1Need, 1e-6));
     const f2 = ws.stage === "L2" || ws.stage === "done" ? Math.min(1, ws.l2Done / Math.max(ws.l2Need, 1e-6)) : 0;
-    ctx.fillStyle = C.l1;
-    ctx.fillRect(x, by, bw * 0.6 * f1, 3);
-    ctx.fillStyle = C.l2;
-    ctx.fillRect(x + bw * 0.6, by, bw * 0.4 * (ws.stage === "done" ? 1 : f2), 3);
+    glow(ctx, C.l1, active ? 8 : 0, () => {
+      ctx.fillStyle = C.l1;
+      ctx.fillRect(x, by, bw * 0.6 * f1, 2);
+    });
+    glow(ctx, C.l2, active ? 8 : 0, () => {
+      ctx.fillStyle = C.l2;
+      ctx.fillRect(x + bw * 0.6, by, bw * 0.4 * (ws.stage === "done" ? 1 : f2), 2);
+    });
     if (ws.integrating || ws.integrated) {
-      ctx.fillStyle = ws.integrated ? C.int : "rgba(154,124,240,0.45)";
-      ctx.beginPath();
-      ctx.arc(x + bw + cw * 0.45, by + 1.5, 2.2, 0, Math.PI * 2);
-      ctx.fill();
+      glow(ctx, C.int, ws.integrating ? 10 : 3, () => {
+        ctx.fillStyle = ws.integrated ? C.int : "rgba(180,92,255,0.5)";
+        const cx = x + bw + cw * 0.45, cy = by + 1;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 3);
+        ctx.lineTo(cx + 3, cy);
+        ctx.lineTo(cx, cy + 3);
+        ctx.lineTo(cx - 3, cy);
+        ctx.closePath();
+        ctx.fill();
+      });
     }
   });
 
@@ -128,8 +201,7 @@ export function drawPage(canvas: HTMLCanvasElement, rd: Reader, ghost: Ghost | n
   if (ghost) {
     const g = ghostAt(ghost, rd.t);
     if (g) {
-      ctx.strokeStyle = "rgba(255,95,176,0.4)";
-      ctx.fillStyle = "rgba(255,95,176,0.18)";
+      ctx.strokeStyle = "rgba(255,62,165,0.4)";
       ctx.lineWidth = 1;
       const from = Math.max(0, g.i - 8);
       ctx.beginPath();
@@ -139,82 +211,115 @@ export function drawPage(canvas: HTMLCanvasElement, rd: Reader, ghost: Ghost | n
         else ctx.lineTo(v.X(x), v.Y(y) + fs * 0.9);
       }
       ctx.stroke();
+      glow(ctx, C.human, 12, () => {
+        ctx.strokeStyle = C.human;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(v.X(g.x), v.Y(g.y) + fs * 0.9, Math.max(4, cw * 0.35), 0, Math.PI * 2);
+        ctx.stroke();
+      });
       ctx.fillStyle = C.human;
-      ctx.beginPath();
-      ctx.arc(v.X(g.x), v.Y(g.y) + fs * 0.9, Math.max(3, cw * 0.32), 0, Math.PI * 2);
-      ctx.fill();
+      ctx.font = `10px "IBM Plex Mono", monospace`;
+      ctx.fillText("HUMAN", v.X(g.x) + 8, v.Y(g.y) + fs * 0.9 + 10);
+      ctx.font = `${fs}px "Courier Prime", "Courier New", monospace`;
     }
   }
 
-  // scanpath trail of the model's eye
+  // scanpath: hollow rings sized by duration, labelled in ms
   const fx = rd.fixations;
   const from = Math.max(0, fx.length - 14);
-  ctx.lineWidth = 1.2;
   for (let i = from; i < fx.length; i++) {
     const f = fx[i];
     const p = posToPx(page, f.line, f.col);
     const dur = (f.end ?? rd.t) - f.start;
-    const a = 0.15 + (0.6 * (i - from)) / (fx.length - from);
+    const a = 0.2 + (0.7 * (i - from)) / Math.max(1, fx.length - from);
+    const px = v.X(p.x), py = v.Y(p.y) - fs * 0.95;
     if (i > from) {
       const q = posToPx(page, fx[i - 1].line, fx[i - 1].col);
-      ctx.strokeStyle = `rgba(111,140,255,${a * 0.7})`;
+      ctx.strokeStyle = `rgba(62,240,255,${a * 0.6})`;
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(v.X(q.x), v.Y(q.y) - fs * 0.9);
-      ctx.lineTo(v.X(p.x), v.Y(p.y) - fs * 0.9);
+      ctx.moveTo(v.X(q.x), v.Y(q.y) - fs * 0.95);
+      ctx.lineTo(px, py);
       ctx.stroke();
     }
-    ctx.fillStyle = f.wander ? `rgba(140,140,140,${a})` : `rgba(111,140,255,${a})`;
+    const r = 2.5 + Math.sqrt(dur) * 0.35;
+    ctx.strokeStyle = f.wander ? `rgba(140,150,160,${a})` : `rgba(62,240,255,${a})`;
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.arc(v.X(p.x), v.Y(p.y) - fs * 0.9, 2 + Math.sqrt(dur) * 0.35 * v.s * 2, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.stroke();
+    if (f.end !== null && i >= fx.length - 6) {
+      ctx.fillStyle = `rgba(62,240,255,${a * 0.9})`;
+      ctx.font = `9px "IBM Plex Mono", monospace`;
+      ctx.fillText(String(Math.round(dur)), px - 8, py - r - 6);
+      ctx.font = `${fs}px "Courier Prime", "Courier New", monospace`;
+    }
   }
 
-  // saccade programs: dashed while still cancellable, solid once committed
+  // saccade plans: dashed while cancellable, solid once committed
   const eye = rd.eye;
   const ep = posToPx(page, eye.line, eye.col);
   for (const prog of [rd.labile, rd.nonlabile]) {
     if (!prog) continue;
     const tw = page.words[prog.target];
     const tp = posToPx(page, tw.line, prog.col);
-    const x0 = v.X(ep.x), y0 = v.Y(ep.y) - fs * 0.9;
-    const x1 = v.X(tp.x), y1 = v.Y(tp.y) - fs * 0.9;
+    const x0 = v.X(ep.x), y0 = v.Y(ep.y) - fs * 0.95;
+    const x1 = v.X(tp.x), y1 = v.Y(tp.y) - fs * 0.95;
     const lift = Math.min(40, 10 + Math.abs(x1 - x0) * 0.25);
-    ctx.strokeStyle = prog.kind === "regress" ? C.fail : C.eye;
-    ctx.setLineDash(prog.stage === "labile" ? [4, 4] : []);
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.quadraticCurveTo((x0 + x1) / 2, Math.min(y0, y1) - lift, x1, y1);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    const frac = Math.min(1, prog.done / Math.max(prog.need, 1e-6));
-    ctx.beginPath();
-    ctx.arc(x1, y1, 6, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2);
-    ctx.stroke();
+    const col = prog.kind === "regress" ? C.fail : C.plan;
+    glow(ctx, col, 10, () => {
+      ctx.strokeStyle = col;
+      ctx.setLineDash(prog.stage === "labile" ? [4, 4] : []);
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.quadraticCurveTo((x0 + x1) / 2, Math.min(y0, y1) - lift, x1, y1);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const frac = Math.min(1, prog.done / Math.max(prog.need, 1e-6));
+      ctx.beginPath();
+      ctx.arc(x1, y1, 6, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2);
+      ctx.stroke();
+    });
   }
 
-  // the eye: fovea and the edge of useful vision
+  // the eye: a reticle with the fovea and the edge of useful vision
   const ex = v.X(ep.x);
   const ey = v.Y(ep.y);
-  ctx.strokeStyle = "rgba(111,140,255,0.3)";
+  ctx.strokeStyle = "rgba(62,240,255,0.22)";
   ctx.lineWidth = 1;
+  ctx.setLineDash([2, 4]);
   ctx.beginPath();
   ctx.ellipse(ex, ey, cw * 7, fs * 1.1, 0, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.setLineDash([]);
   if (rd.p.scotoma > 0) {
-    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    ctx.fillStyle = "rgba(0,0,0,0.85)";
     ctx.beginPath();
     ctx.ellipse(ex, ey, cw * rd.p.scotoma, fs * 0.8, 0, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.fillStyle = eye.moving ? "rgba(111,140,255,0.35)" : "rgba(111,140,255,0.16)";
+  ctx.fillStyle = eye.moving ? "rgba(62,240,255,0.22)" : "rgba(62,240,255,0.09)";
   ctx.beginPath();
   ctx.ellipse(ex, ey, cw * 1.5, fs * 0.75, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = C.eye;
-  ctx.beginPath();
-  ctx.arc(ex, ey - fs * 0.9, eye.moving ? 3 : 4.5, 0, Math.PI * 2);
-  ctx.fill();
+  glow(ctx, C.eye, 12, () => {
+    ctx.strokeStyle = eye.moving ? C.human : C.eye;
+    ctx.lineWidth = 1.5;
+    const ry = ey - fs * 0.95;
+    const r = eye.moving ? 5 : 7;
+    ctx.beginPath();
+    ctx.arc(ex, ry, r, 0, Math.PI * 2);
+    ctx.moveTo(ex - r - 5, ry);
+    ctx.lineTo(ex - r + 2, ry);
+    ctx.moveTo(ex + r - 2, ry);
+    ctx.lineTo(ex + r + 5, ry);
+    ctx.moveTo(ex, ry - r - 5);
+    ctx.lineTo(ex, ry - r + 2);
+    ctx.stroke();
+  });
+  scanlines(ctx, cssW, v.h, 0.12);
 }
 
 /**
@@ -238,10 +343,10 @@ export function drawRetina(canvas: HTMLCanvasElement, rd: Reader, cssH: number) 
   const plotBot = H - 22;
 
   // glow of the fovea
-  const glow = ctx.createRadialGradient(cx, textY, 0, cx, textY, cw * 7);
-  glow.addColorStop(0, "rgba(120,150,255,0.16)");
-  glow.addColorStop(1, "rgba(120,150,255,0)");
-  ctx.fillStyle = glow;
+  const halo = ctx.createRadialGradient(cx, textY, 0, cx, textY, cw * 7);
+  halo.addColorStop(0, "rgba(62,240,255,0.14)");
+  halo.addColorStop(1, "rgba(62,240,255,0)");
+  ctx.fillStyle = halo;
   ctx.fillRect(0, 0, w, plotTop);
 
   const X = (col: number) => cx + (col - eye.col) * cw;
@@ -272,7 +377,7 @@ export function drawRetina(canvas: HTMLCanvasElement, rd: Reader, cssH: number) 
     if (tw.line !== eye.line) continue;
     const tx = X(prog.col);
     const y = textY - fs * 1.05;
-    ctx.strokeStyle = prog.kind === "regress" ? C.fail : "#8fa3e6";
+    ctx.strokeStyle = prog.kind === "regress" ? C.fail : C.plan;
     ctx.lineWidth = 2;
     ctx.setLineDash(prog.stage === "labile" ? [5, 5] : []);
     ctx.beginPath();
@@ -329,7 +434,7 @@ export function drawRetina(canvas: HTMLCanvasElement, rd: Reader, cssH: number) 
   }
 
   // centre of gaze
-  ctx.strokeStyle = "rgba(143,163,230,0.9)";
+  ctx.strokeStyle = "rgba(62,240,255,0.8)";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(cx, textY - fs * 1.6);
@@ -345,8 +450,8 @@ export function drawRetina(canvas: HTMLCanvasElement, rd: Reader, cssH: number) 
   ctx.fillRect(0, plotTop, w, plotBot - plotTop);
   const Y = (a: number) => plotBot - a * (plotBot - plotTop - 6);
   const grad = ctx.createLinearGradient(0, plotTop, 0, plotBot);
-  grad.addColorStop(0, "rgba(120,150,255,0.55)");
-  grad.addColorStop(1, "rgba(120,150,255,0.05)");
+  grad.addColorStop(0, "rgba(62,240,255,0.45)");
+  grad.addColorStop(1, "rgba(62,240,255,0.03)");
   ctx.fillStyle = grad;
   ctx.beginPath();
   ctx.moveTo(0, plotBot);
@@ -354,7 +459,7 @@ export function drawRetina(canvas: HTMLCanvasElement, rd: Reader, cssH: number) 
   ctx.lineTo(w, plotBot);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = "#8fa3e6";
+  ctx.strokeStyle = C.eye;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   for (let px = 0; px <= w; px += 2) {
@@ -381,94 +486,118 @@ export function drawRetina(canvas: HTMLCanvasElement, rd: Reader, cssH: number) 
 }
 
 const LANES: { key: string; name: string; color: string }[] = [
-  { key: "eye", name: "eye on", color: C.eye },
-  { key: "att", name: "attention", color: "#d9b93a" },
-  { key: "L1", name: "L1 familiar?", color: C.l1 },
-  { key: "L2", name: "L2 access", color: C.l2 },
-  { key: "int", name: "integration", color: C.int },
-  { key: "labile", name: "plan (labile)", color: "#8fa3e6" },
-  { key: "nonlabile", name: "plan (committed)", color: C.eye },
+  { key: "eye", name: "EYE ON", color: C.eye },
+  { key: "att", name: "ATTENTION", color: C.att },
+  { key: "L1", name: "L1 FAMILIAR?", color: C.l1 },
+  { key: "L2", name: "L2 ACCESS", color: C.l2 },
+  { key: "int", name: "INTEGRATION", color: C.int },
+  { key: "labile", name: "PLAN ?", color: C.plan },
+  { key: "nonlabile", name: "PLAN !", color: C.plan },
 ];
 
-export function drawTimeline(canvas: HTMLCanvasElement, rd: Reader, dark: boolean) {
-  const laneH = 20;
-  const top = 6;
-  const H = top + LANES.length * laneH + 18;
+export function drawTimeline(canvas: HTMLCanvasElement, rd: Reader, _dark: boolean) {
+  const laneH = 22;
+  const top = 8;
+  const H = top + LANES.length * laneH + 22;
   const { w, ctx } = fit(canvas, H);
   ctx.clearRect(0, 0, w, H);
-  const labelW = 104;
+  const labelW = 112;
   const win = 2500;
   const t1 = Math.max(rd.t, win);
   const t0 = t1 - win;
   const X = (t: number) => labelW + ((t - t0) / win) * (w - labelW - 6);
-  const text = dark ? "#cfd3d0" : C.ink;
-  const muted = dark ? "#7f878e" : C.muted;
-  ctx.font = `12px "IBM Plex Sans Condensed", sans-serif`;
+  const bottom = top + LANES.length * laneH;
   ctx.textBaseline = "middle";
+
+  // lanes and labels
   LANES.forEach((l, i) => {
     const y = top + i * laneH;
-    ctx.fillStyle = muted;
+    ctx.font = `10px "IBM Plex Mono", monospace`;
+    ctx.fillStyle = l.color;
+    ctx.globalAlpha = 0.85;
     ctx.fillText(l.name, 0, y + laneH / 2);
-    ctx.fillStyle = dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.035)";
-    ctx.fillRect(labelW, y + 2, w - labelW - 6, laneH - 4);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "rgba(62,240,255,0.035)";
+    ctx.fillRect(labelW, y + 3, w - labelW - 6, laneH - 6);
   });
-  // time grid
-  ctx.strokeStyle = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
-  ctx.fillStyle = muted;
-  ctx.font = `11px "IBM Plex Mono", monospace`;
-  for (let t = Math.ceil(t0 / 500) * 500; t <= t1; t += 500) {
+  // time grid, every 100 ms, labelled every 500
+  for (let t = Math.ceil(t0 / 100) * 100; t <= t1; t += 100) {
+    const major = t % 500 === 0;
+    ctx.strokeStyle = major ? "rgba(62,240,255,0.16)" : "rgba(62,240,255,0.05)";
     ctx.beginPath();
-    ctx.moveTo(X(t), top);
-    ctx.lineTo(X(t), top + LANES.length * laneH);
+    ctx.moveTo(X(t) + 0.5, top);
+    ctx.lineTo(X(t) + 0.5, bottom);
     ctx.stroke();
-    ctx.fillText(`${(t / 1000).toFixed(1)} s`, X(t) - 14, top + LANES.length * laneH + 9);
+    if (major) {
+      ctx.fillStyle = "#4f6a7a";
+      ctx.font = `10px "IBM Plex Mono", monospace`;
+      ctx.fillText(`T+${(t / 1000).toFixed(1)}s`, X(t) - 18, bottom + 11);
+    }
   }
 
-  const bar = (lane: number, a: number, b: number, color: string, label: string, flag?: string) => {
+  const bar = (lane: number, a: number, b: number, color: string, label: string, flag?: string, open?: boolean) => {
     if (b < t0) return;
     const x0 = Math.max(X(a), labelW);
     const x1 = X(b);
-    const y = top + lane * laneH + 3;
-    ctx.globalAlpha = flag === "cancelled" ? 0.35 : 1;
-    ctx.fillStyle = flag === "fail" ? C.fail : color;
-    ctx.fillRect(x0, y, Math.max(1.5, x1 - x0 - 1), laneH - 6);
-    ctx.globalAlpha = 1;
+    const y = top + lane * laneH + 5;
+    const h = laneH - 10;
+    const c = flag === "fail" ? C.fail : color;
     if (flag === "cancelled") {
-      ctx.strokeStyle = text;
-      ctx.beginPath();
-      ctx.moveTo(x1 - 1, y);
-      ctx.lineTo(x1 - 1, y + laneH - 6);
-      ctx.stroke();
+      // a cancelled plan: an outline that stops short
+      ctx.strokeStyle = c;
+      ctx.globalAlpha = 0.5;
+      ctx.setLineDash([3, 3]);
+      ctx.strokeRect(x0 + 0.5, y + 0.5, Math.max(1.5, x1 - x0 - 2), h - 1);
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = C.fail;
+      ctx.fillRect(x1 - 2, y - 2, 2, h + 4);
+      return;
     }
-    if (x1 - x0 > 28) {
-      ctx.fillStyle = "#ffffff";
-      ctx.font = `11px "Courier Prime", monospace`;
+    glow(ctx, c, open ? 14 : 5, () => {
+      ctx.fillStyle = c;
+      ctx.globalAlpha = lane === 5 ? 0.55 : 0.9;
+      ctx.fillRect(x0, y, Math.max(1.5, x1 - x0 - 1), h);
+      ctx.globalAlpha = 1;
+    });
+    if (x1 - x0 > 30) {
+      ctx.fillStyle = "#05070a";
+      ctx.font = `600 10px "IBM Plex Mono", monospace`;
       ctx.save();
       ctx.beginPath();
-      ctx.rect(x0, y, x1 - x0 - 2, laneH - 6);
+      ctx.rect(x0, y, x1 - x0 - 2, h);
       ctx.clip();
-      ctx.fillText(label, x0 + 3, y + (laneH - 6) / 2 + 1);
+      ctx.fillText(label, x0 + 3, y + h / 2 + 0.5);
       ctx.restore();
     }
   };
 
   for (const f of rd.fixations) {
-    const end = f.end ?? rd.t;
-    bar(0, f.start, end, f.wander ? "#8a8f95" : C.eye, rd.page.words[f.word]?.text ?? "");
+    bar(0, f.start, f.end ?? rd.t, f.wander ? "#7d8a96" : C.eye, rd.page.words[f.word]?.text ?? "", undefined, f.end === null);
   }
   const laneOf: Record<Interval["lane"], number> = { att: 1, L1: 2, L2: 3, int: 4, labile: 5, nonlabile: 6, sacc: -1 };
   for (const iv of rd.intervals) {
     const lane = laneOf[iv.lane];
     if (lane < 0) continue;
     const label = rd.page.words[iv.word]?.text ?? "";
-    bar(lane, iv.t0, iv.t1 ?? rd.t, LANES[lane].color, iv.lane === "labile" || iv.lane === "nonlabile" ? `→ ${label}` : label, iv.flag);
+    bar(lane, iv.t0, iv.t1 ?? rd.t, LANES[lane].color, iv.lane === "labile" || iv.lane === "nonlabile" ? `>${label}` : label, iv.flag, iv.t1 === null);
+  }
+  // saccades as magenta ticks across the eye lane
+  for (const iv of rd.intervals) {
+    if (iv.lane !== "sacc" || (iv.t1 ?? rd.t) < t0) continue;
+    ctx.fillStyle = C.human;
+    ctx.fillRect(X(iv.t0), top + 2, Math.max(2, X(iv.t1 ?? rd.t) - X(iv.t0)), laneH - 4);
   }
   // now
-  ctx.strokeStyle = text;
-  ctx.beginPath();
-  ctx.moveTo(X(rd.t), top);
-  ctx.lineTo(X(rd.t), top + LANES.length * laneH);
-  ctx.stroke();
+  glow(ctx, C.human, 10, () => {
+    ctx.strokeStyle = C.human;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(X(rd.t), top - 4);
+    ctx.lineTo(X(rd.t), bottom + 2);
+    ctx.stroke();
+  });
+  scanlines(ctx, w, H, 0.12);
 }
 
 /** per-word gaze duration, model vs people, for the score panel */
