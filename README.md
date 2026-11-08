@@ -38,9 +38,10 @@ each text up to a word and guessed the next one.
 
 Running the model on the Provo texts lets us compare it with real readers word by word. The
 published parameter values were estimated on other sentences and other readers, so we also fit
-them to Provo: a search changes the parameters a little at a time and keeps a change when the
-model's reading on 40 of the texts gets closer to the readers'. The remaining 15 texts are used
-only to test the result.
+them to Provo. The search (CMA-ES) changes all parameters together, keeps the changes that bring
+the model's reading on 35 of the texts closer to the readers', and learns which directions help.
+Ten more texts are used to choose between fitted versions, and the last ten only to score the
+chosen one.
 
 ## Run it
 
@@ -50,10 +51,11 @@ Needs Node 23.6 or newer (it runs the TypeScript directly) and pnpm.
 pnpm install --frozen-lockfile
 pnpm dev                  # http://127.0.0.1:5318
 pnpm test                 # engine tests
-node tools/score.ts fitted test 40   # score on the 15 held-out passages, 40 runs each
-node tools/score.ts ezr10 test 40    # the same for the published E-Z Reader 10 values
-node tools/score.ts check-humans     # our measure code on raw human fixations vs the study's report
-node tools/fit.ts 400 10 ezr10       # refit on passages 1–40 from the paper's values (writes src/engine/fitted.ts if better)
+node tools/score.ts fitted final 100   # score on the final passages 46–55, 100 runs each
+node tools/score.ts ezr10 final 100    # the same for the published E-Z Reader 10 values
+node tools/score.ts check-humans       # our measure code on raw human fixations vs the study's report
+node tools/fit_cma.ts fitted 80 20     # CMA-ES fit on 1–35, chosen on 36–45 (writes out/cma-fitted.json)
+python -I scripts/diagnose_inputs.py public/data/provo   # regression baseline on the same split
 ```
 
 The prepared data in `public/data/` are committed. To rebuild them, put the three Provo CSV files
@@ -133,34 +135,41 @@ them from the raw human fixations with our own code and matches the study's repo
 The ceiling column is the human split-half reliability (odd vs even participants,
 Spearman–Brown), the most any model could reach.
 
-Passages 1–40 are used for fitting; 41–55 are held out.
+Passages 1–35 are used for fitting, 36–45 for choosing between fitted versions, and 46–55 only
+for the final score. (An earlier hill-climb fit, `tools/fit.ts`, used 1–40 and 41–55; the final
+passages were part of that earlier held-out set, so they are not entirely unseen.)
 
 ### Results
 
-Held-out passages 41–55 (753 words), 100 model runs per passage. "Regression" is a linear
-regression of the human measure on word length, frequency and predictability (the model's own
-inputs), fitted on passages 1–40 (`scripts/diagnose_inputs.py`). The ceiling is the human
-split-half reliability.
+Final passages 46–55 (433 words), 100 model runs per passage. "Regression" is a linear regression
+of the human measure on word length, frequency and predictability (the model's own inputs),
+fitted on passages 1–35 (`scripts/diagnose_inputs.py`). The ceiling is the human split-half
+reliability. In the "E-Z Reader 10" column the corrective look-back we added is on at 0.5.
 
-| measure | people | E-Z Reader 10 values | fitted | r: E-Z Reader 10 | r: fitted | r: regression | ceiling |
-|---|---|---|---|---|---|---|---|
-| words skipped | 45% | 29% | 30% | 0.75 | 0.76 | 0.86 | 0.96 |
-| first fixation | 210 ms | 233 ms | 216 ms | −0.05 | −0.15 | 0.35 | 0.67 |
-| gaze duration | 244 ms | 256 ms | 244 ms | 0.33 | 0.33 | 0.65 | 0.89 |
-| total time | 280 ms | 265 ms | 283 ms | 0.33 | 0.41 | 0.70 | 0.93 |
-| refixations | 15% | 12% | 15% | 0.54 | 0.57 | 0.74 | 0.87 |
-| looks back | 18% | 4% | 16% | 0.09 | 0.03 | 0.12 | 0.81 |
+| measure | people | E-Z Reader 10 | old fit | CMA-ES fit | r: E-Z Reader 10 | r: old fit | r: CMA-ES fit | r: regression | ceiling |
+|---|---|---|---|---|---|---|---|---|---|
+| words skipped | 45% | 30% | 31% | 39% | 0.72 | 0.75 | 0.78 | 0.85 | 0.96 |
+| first fixation | 208 ms | 233 ms | 217 ms | 216 ms | −0.06 | −0.10 | 0.16 | 0.31 | 0.62 |
+| gaze duration | 241 ms | 256 ms | 244 ms | 244 ms | 0.28 | 0.27 | 0.55 | 0.62 | 0.89 |
+| total time | 276 ms | 264 ms | 281 ms | 270 ms | 0.30 | 0.34 | 0.58 | 0.68 | 0.92 |
+| refixations | 14% | 11% | 14% | 13% | 0.52 | 0.54 | 0.57 | 0.72 | 0.88 |
+| looks back | 18% | 4% | 16% | 16% | 0.01 | 0.06 | 0.17 | 0.12 | 0.83 |
 
-Loss on the held-out passages is 28.7 with the paper's values and 18.6 fitted; the fitted loss
-on the training passages is 18.6.
+Loss on the final passages: 29.8 with the paper's values, 19.0 with the old hill-climb fit, 13.6
+with the CMA-ES fit (13.6 on the validation passages too).
 
-Fitting brings the averages close to the readers', but the per-word correlations stay about where
-the paper's values put them, and well below what a plain regression on the same three word
-properties reaches. The model underestimates skipping, and its first-fixation durations correlate
-slightly negatively with the readers'. Looking back is not predicted by either the model or the
-regression: in the model, integration fails at random, and in the data it depends more on things
-the model does not represent (sentence ends, the next word). Adding line position, punctuation and
-the neighbouring words to the regression raises gaze duration to r 0.79 and looking back to 0.42.
+The old fit matched the averages by making word recognition fast and acuity nearly flat, so the
+fixed saccade-planning time filled most of each fixation and gaze barely depended on the word.
+The hill climb changed one or two parameters at a time and could not leave that solution. CMA-ES
+moves all parameters together and found one where word recognition drives fixation times: a
+stronger frequency effect (α2 7.8), steep acuity falloff (ε 1.4), faster saccade planning
+(M1 102 ms) and fewer random integration failures (pF 0.08). Gaze duration now tracks the readers
+about as well as the regression does on the model's own inputs.
+
+Remaining gaps: the model skips too little (39% against 45%). Acuity falloff and the return-sweep
+landing point ended at the edge of their allowed ranges. Looking back is still mostly unexplained;
+the regression shows that line position, punctuation and the neighbouring words raise it to r
+0.41, and gaze duration to 0.79, and the model represents none of them.
 
 An earlier version of the model had a bug that let the eye wait for seconds while attention
 worked on a word far away. Results reported before that fix (commit 6692ef4) are not valid.
@@ -170,7 +179,7 @@ worked on a word far away. Results reported before that fix (commit 6692ef4) are
 ```
 src/engine/   model, parameters, text layout, measures, scoring, readers (no DOM)
 src/ui/       the page (canvas drawing and controls)
-tools/        command-line scorer and fitter
+tools/        command-line scorer and fitters (CMA-ES, older hill climb)
 scripts/      data preparation (Python)
 public/data/  prepared Provo passages and the frequency lexicon
 tests/        engine tests (node --test)

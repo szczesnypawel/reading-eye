@@ -9,7 +9,8 @@ per-word r (tools/score.ts) and the human split-half ceiling.
   C  B plus things E-Z Reader does not know: line start / line end, punctuation after the word,
      sentence end, and the previous and next word's length and frequency
 
-usage: python -I scripts/diagnose_inputs.py public/data/provo
+usage: python -I scripts/diagnose_inputs.py public/data/provo [fit_last] [test_first] [test_last]
+       (default: fit on 1-35, test on 46-55, the split of tools/fit_cma.ts)
 """
 import json
 import re
@@ -20,7 +21,11 @@ import numpy as np
 
 DIR = Path(sys.argv[1])
 MEAS = ["skip", "ffd", "gd", "tt", "refix", "regout"]
-TRAIN = set(range(1, 41))
+FIT_LAST = int(sys.argv[2]) if len(sys.argv) > 2 else 35
+TEST_FIRST = int(sys.argv[3]) if len(sys.argv) > 3 else 46
+TEST_LAST = int(sys.argv[4]) if len(sys.argv) > 4 else 55
+TRAIN = set(range(1, FIT_LAST + 1))
+TESTSET = set(range(TEST_FIRST, TEST_LAST + 1))
 
 rows = []
 for f in sorted(DIR.glob("text*.json")):
@@ -66,12 +71,12 @@ def r_of(a, b):
     return float(np.corrcoef(a, b)[0, 1])
 
 
-print("held-out passages 41-55: correlation per word with people\n")
+print(f"fit on passages 1-{FIT_LAST}, tested on {TEST_FIRST}-{TEST_LAST}: correlation per word with people\n")
 print(f"{'measure':8} {'A: len,freq,pred':>17} {'B: +curves':>11} {'C: +layout,punct,neighbours':>28} {'ceiling':>8}")
 for mi, m in enumerate(MEAS):
     ok = [r for r in rows if r["human"][m] is not None]
     tr = [r for r in ok if r["text"] in TRAIN]
-    te = [r for r in ok if r["text"] not in TRAIN]
+    te = [r for r in ok if r["text"] in TESTSET]
     out = []
     for which in "ABC":
         X = np.array([design(r, which) for r in tr])

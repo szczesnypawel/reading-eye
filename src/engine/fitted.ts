@@ -1,34 +1,34 @@
 /**
- * Parameters fitted to the Provo Corpus training passages (1–40) by tools/fit.ts
- * (300 hill-climb steps, 20 runs per passage, training loss 18.828).
- * Passages 41–55 are held out: score them with `node tools/score.ts fitted test`.
+ * Parameters fitted to the Provo Corpus by tools/fit_cma.ts (CMA-ES, all free parameters at once,
+ * 80 generations, 20 runs per passage) on passages 1–35, chosen on 36–45
+ * (validation loss 13.60), and scored once on 46–55.
  */
 import type { Params } from "./params.ts";
 
 export const FITTED: Params = {
-  alpha1: 100.5,
-  alpha2: 2.922,
-  alpha3: 42.08,
-  delta: 0.1,
-  eps: 1.113,
+  alpha1: 87.73,
+  alpha2: 7.796,
+  alpha3: 73.8,
+  delta: 0.1973,
+  eps: 1.4,
   cv: 0.22,
-  I: 25,
-  pF: 0.2763,
-  A: 50,
-  pN: 0.5,
-  regExtra: 30,
-  V: 50,
-  M1: 117.2,
-  M2: 25,
-  S: 25,
-  psi: 7.332,
-  omega1: 8.224,
-  omega2: 3,
+  I: 25.0,
+  pF: 0.07967,
+  A: 50.0,
+  pN: 0.0,
+  regExtra: 30.0,
+  V: 50.0,
+  M1: 102.4,
+  M2: 25.0,
+  S: 25.0,
+  psi: 8.628,
+  omega1: 6.569,
+  omega2: 3.0,
   eta1: 0.5,
-  eta2: 0.1202,
-  lambda: 0.06624,
-  sweep: 1.781,
-  pCorrect: 0.6355,
-  scotoma: 0,
-  mindless: 0,
+  eta2: 0.329,
+  lambda: 0.07528,
+  sweep: 6.0,
+  pCorrect: 0.3148,
+  scotoma: 0.0,
+  mindless: 0.0,
 };

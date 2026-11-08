@@ -1,14 +1,15 @@
 /**
- * node tools/score.ts [ezr10|fitted] [train|test|all] [runs]
+ * node tools/score.ts [ezr10|fitted] [fit|validation|final|train|test|all] [runs]
+ *   fit 1–35, validation 36–45, final 46–55 (tools/fit_cma.ts); train 1–40, test 41–55 (tools/fit.ts)
  * node tools/score.ts check-humans   — recompute the human measures from the raw fixations
  */
 import { MEASURES, meanMeasures, pearson, wordMeasures } from "../src/engine/measures.ts";
 import { EZR10, type Params } from "../src/engine/params.ts";
 import { formatReport, humanFixations, score } from "../src/engine/score.ts";
 import { FITTED } from "../src/engine/fitted.ts";
-import { loadLexicon, loadProvo, TEST, TRAIN } from "./load.ts";
+import { FINAL, FIT, loadLexicon, loadProvo, TEST, TRAIN, VALIDATION } from "./load.ts";
 
-const [which = "fitted", split = "test", runsArg = "40"] = process.argv.slice(2);
+const [which = "fitted", split = "final", runsArg = "40"] = process.argv.slice(2);
 
 if (which === "check-humans") {
   // our measure code on the raw fixations should reproduce the study's interest-area report
@@ -32,7 +33,8 @@ if (which === "check-humans") {
 }
 
 const p: Params = which === "ezr10" ? EZR10 : FITTED;
-const ids = split === "train" ? TRAIN : split === "test" ? TEST : undefined;
+const SPLITS: Record<string, number[]> = { train: TRAIN, test: TEST, fit: FIT, validation: VALIDATION, final: FINAL };
+const ids = SPLITS[split];
 const t0 = Date.now();
 const rep = score(loadProvo(ids), loadLexicon(), p, Number(runsArg));
 console.log(formatReport(rep, `${which} on ${split} passages, ${runsArg} runs each`));

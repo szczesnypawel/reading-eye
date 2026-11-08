@@ -15,6 +15,11 @@ export function loadProvo(ids?: number[]): ProvoDoc[] {
     .map((t) => JSON.parse(readFileSync(new URL(`provo/text${String(t.id).padStart(2, "0")}.json`, DATA), "utf8")));
 }
 
-/** passages 1–40 for fitting, 41–55 held out */
+/** passages 1–40 for fitting, 41–55 held out (the split used by tools/fit.ts) */
 export const TRAIN = Array.from({ length: 40 }, (_, i) => i + 1);
 export const TEST = Array.from({ length: 15 }, (_, i) => i + 41);
+
+/** the split used by tools/fit_cma.ts: fit 1–35, choose on 36–45, final score once on 46–55 */
+export const FIT = Array.from({ length: 35 }, (_, i) => i + 1);
+export const VALIDATION = Array.from({ length: 10 }, (_, i) => i + 36);
+export const FINAL = Array.from({ length: 10 }, (_, i) => i + 46);

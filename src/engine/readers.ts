@@ -21,7 +21,7 @@ export const READERS: ReaderKind[] = [
     id: "skilled",
     name: "Skilled adult",
     fitted: true,
-    note: "Fitted to 40 Provo passages read by 84 adults.",
+    note: "Fitted to 35 Provo passages read by 84 adults.",
     params: { ...FITTED },
   },
   {
