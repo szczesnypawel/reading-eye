@@ -385,6 +385,17 @@ export class Reader {
       }
     }
 
+    // the eye follows attention: if no saccade is planned and the eye is not on the attended
+    // word, plan one to it. Without this the eye can sit still while attention works on a far
+    // word at a tiny rate (after a refixation plan replaced the forward one, or when attention
+    // is on another line, which E-Z Reader, a one-line model, never meets) and wait for seconds.
+    if (!this.labile && !this.nonlabile && !this.saccade && !this.shift && !this.wandering) {
+      const cur = this.fixations.at(-1)!;
+      if (cur.word !== this.att && this.words[this.att].stage === "L1") {
+        this.program(this.att, this.att < cur.word ? "regress" : "next");
+      }
+    }
+
     // saccade programs
     if (this.labile && this.labile.stage === "labile") {
       this.labile.done += dt;

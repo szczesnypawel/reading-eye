@@ -86,3 +86,13 @@ test("a click sends the eye to a word, and reading goes on from there", () => {
   assert.ok(words.some((w) => w >= target - 1 && w <= target + 2), `fixations after click: ${words}`);
   assert.ok(r.att >= target, `attention at ${r.att}, clicked ${target}`);
 });
+
+test("no fixation stalls for seconds (attention on another line pulls the eye there)", () => {
+  const long = pageFromText(Array(6).fill(TEXT).join(" "), lex);
+  for (let s = 1; s <= 40; s++) {
+    const r = new Reader(long, P, s);
+    const fx = r.run();
+    const worst = Math.max(...fx.map((f) => (f.end ?? r.t) - f.start));
+    assert.ok(worst < 1200, `seed ${s}: a fixation lasted ${worst} ms`);
+  }
+});
