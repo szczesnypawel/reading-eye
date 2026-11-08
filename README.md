@@ -131,33 +131,35 @@ Spearman–Brown), the most any model could reach.
 
 Passages 1–40 are used for fitting; 41–55 are held out.
 
-### Results (held-out passages 41–55, 753 words, 40 model runs per passage)
+### Results
 
-| measure | people | E-Z Reader 10 values | fitted | r per word: E-Z Reader 10 | r per word: fitted | ceiling |
-|---|---|---|---|---|---|---|
-| words skipped | 45% | 33% | 34% | 0.70 | 0.74 | 0.96 |
-| first fixation | 210 ms | 270 ms | 220 ms | −0.07 | −0.12 | 0.67 |
-| gaze duration | 244 ms | 295 ms | 246 ms | 0.21 | 0.15 | 0.89 |
-| total time | 280 ms | 303 ms | 276 ms | 0.19 | 0.15 | 0.93 |
-| refixations | 15% | 11% | 14% | 0.53 | 0.37 | 0.87 |
-| looks back | 18% | 3% | 17% | 0.00 | 0.02 | 0.81 |
+Held-out passages 41–55 (753 words), 100 model runs per passage. "Regression" is a linear
+regression of the human measure on word length, frequency and predictability (the model's own
+inputs), fitted on passages 1–40 (`scripts/diagnose_inputs.py`). The ceiling is the human
+split-half reliability.
 
-Loss: 41.3 with the paper's values, 20.2 fitted (training loss 20.6, so no sign of
-overfitting).
+| measure | people | E-Z Reader 10 values | fitted | r: E-Z Reader 10 | r: fitted | r: regression | ceiling |
+|---|---|---|---|---|---|---|---|
+| words skipped | 45% | 29% | 30% | 0.75 | 0.76 | 0.86 | 0.96 |
+| first fixation | 210 ms | 233 ms | 216 ms | −0.05 | −0.15 | 0.35 | 0.67 |
+| gaze duration | 244 ms | 256 ms | 244 ms | 0.33 | 0.33 | 0.65 | 0.89 |
+| total time | 280 ms | 265 ms | 283 ms | 0.33 | 0.41 | 0.70 | 0.93 |
+| refixations | 15% | 12% | 15% | 0.54 | 0.57 | 0.74 | 0.87 |
+| looks back | 18% | 4% | 16% | 0.09 | 0.03 | 0.12 | 0.81 |
 
-What this says:
+Loss on the held-out passages is 28.7 with the paper's values and 18.6 fitted; the fitted loss
+on the training passages is 18.6.
 
-- Fitting fixes the averages: fixation times, skipping and looking back come close to people's.
-- Fitting does not fix the word-by-word pattern. Only skipping tracks people well (r 0.74 of a
-  possible 0.96). Gaze duration and total time barely track which words people linger on, and
-  looking back does not track them at all. Here the model is far below the human ceiling.
-- The model's frequency effect is flatter than people's (gaze 329 → 232 ms from rare to common
-  words, people 380 → 216 ms), and a stronger frequency parameter does not raise the per-word
-  correlation.
-- Per-word model means from 10 runs (as used in fitting) are noisy, which lowers the per-word
-  correlation the fitter sees. Fitting with more runs, and asking why gaze duration does not
-  follow the words, are the next steps.
+Fitting brings the averages close to the readers', but the per-word correlations stay about where
+the paper's values put them, and well below what a plain regression on the same three word
+properties reaches. The model underestimates skipping, and its first-fixation durations correlate
+slightly negatively with the readers'. Looking back is not predicted by either the model or the
+regression: in the model, integration fails at random, and in the data it depends more on things
+the model does not represent (sentence ends, the next word). Adding line position, punctuation and
+the neighbouring words to the regression raises gaze duration to r 0.79 and looking back to 0.42.
 
+An earlier version of the model had a bug that let the eye wait for seconds while attention
+worked on a word far away. Results reported before that fix (commit 6692ef4) are not valid.
 
 ## Layout
 
