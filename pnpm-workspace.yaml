@@ -1,0 +1,5 @@
+# Supply-chain hardening. Written before the first install.
+minimumReleaseAge: 10080        # 7 days: no package newer than a week
+onlyBuiltDependencies: []       # no install scripts run
+blockExoticSubdeps: true
+strictDepBuilds: true

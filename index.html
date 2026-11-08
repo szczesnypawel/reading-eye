@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reading Eye</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+    <link rel="stylesheet" href="/src/ui/style.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <div class="brand">
+        <h1>Reading Eye</h1>
+      </div>
+      <div class="transport">
+        <button id="play" type="button" aria-label="Pause">❚❚</button>
+        <button id="restart" type="button">Restart</button>
+        <label>Speed
+          <select id="speed">
+            <option value="0.1">0.1×</option>
+            <option value="0.25" selected>0.25×</option>
+            <option value="0.5">0.5×</option>
+            <option value="1">1× real time</option>
+            <option value="3">3×</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <section class="hero" aria-label="The reader's eyes and what they see">
+      <figure class="hero-eyes">
+        <canvas id="eyes" aria-label="A pair of eyes moving as the model reads"></canvas>
+        <figcaption>The eyes, from outside. The pupils widen with effort (illustrative).</figcaption>
+      </figure>
+      <figure class="hero-retina">
+        <canvas id="strip" aria-label="The current line as the retina receives it"></canvas>
+        <figcaption>What reaches the eye right now</figcaption>
+      </figure>
+    </section>
+
+    <main class="layout">
+      <section class="stage">
+        <div class="source">
+          <label>Text
+            <select id="text-pick"></select>
+          </label>
+          <div id="typed" hidden>
+            <textarea id="typed-text" rows="3" spellcheck="false">The old man the boat. While the man hunted the deer ran into the woods. Reading is mostly a matter of knowing where not to look.</textarea>
+            <button id="typed-go" type="button">Read this</button>
+          </div>
+          <label class="ghost"><input id="ghost" type="checkbox" checked /> Show a real reader
+            <select id="ghost-pick"></select>
+          </label>
+        </div>
+
+        <div class="readers" id="readers" role="radiogroup" aria-label="Kind of reader"></div>
+        <p class="reader-note" id="reader-note"></p>
+
+        <figure class="panel page-panel">
+          <canvas id="page" aria-label="The page, with the simulated eye reading it"></canvas>
+          <figcaption>Click any word to send the eye there.</figcaption>
+        </figure>
+
+        <figure class="panel time-panel">
+          <figcaption class="lane-title">Inside the reader: the last 2.5 seconds</figcaption>
+          <canvas id="timeline"></canvas>
+        </figure>
+      </section>
+
+      <aside class="side">
+        <section class="panel">
+          <h2>Right now</h2>
+          <dl class="stats" id="stats"></dl>
+        </section>
+
+        <section class="panel">
+          <h2>Against people</h2>
+          <div id="score"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Grab the mechanism</h2>
+          <div id="knobs" class="knobs"></div>
+          <button id="reset-knobs" type="button" class="quiet">Back to this reader's settings</button>
+        </section>
+
+        <section class="panel legend">
+          <h2>Key</h2>
+          <ul>
+            <li><i class="sw l1"></i>L1: is this word familiar? Slows with distance from the eye.</li>
+            <li><i class="sw l2"></i>L2: full word access. Then attention moves on.</li>
+            <li><i class="sw int"></i>Integration into the sentence. <i class="sw fail"></i> failed: go back.</li>
+            <li><i class="sw att"></i>Attention, one word at a time.</li>
+            <li><i class="sw lab"></i>Saccade plan, still cancellable. <i class="sw nonlab"></i> committed.</li>
+            <li><i class="sw eye"></i>The model's eye. <i class="sw human"></i> a real Provo reader.</li>
+          </ul>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="foot">
+      Model in the style of E-Z Reader 10 (Reichle, Warren &amp; McConnell, 2009). Eye-tracking data and
+      cloze norms: the Provo Corpus (Luke &amp; Christianson, 2018), CC-BY 4.0. Word frequencies: wordfreq,
+      CC-BY-SA 4.0.
+    </footer>
+    <script type="module" src="/src/ui/main.ts"></script>
+  </body>
+</html>
