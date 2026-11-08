@@ -2,6 +2,10 @@
 
 **Live: https://szczesnypawel.github.io/reading-eye/**
 
+
+https://github.com/user-attachments/assets/74169e83-9d4a-46a5-a749-4a34897223ed
+
+
 A simulated reader you can watch from the inside. You give it any text; a model eye reads it,
 fixation by fixation, while you see each word being recognised, attention moving one word at a
 time, and saccade plans being made and cancelled. You can grab the mechanism while it runs, and
